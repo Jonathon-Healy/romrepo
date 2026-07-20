@@ -50,6 +50,12 @@ PLATFORMS = {
 }
 
 ALIASES = {
+    "nintendoentertainmentsystem": "nes",
+    "supernintendoentertainmentsystem": "snes",
+    "playstation1": "psx", "psone": "psx", "playstationone": "psx",
+    "playstationportable": "psp", "playstationvita": "psvita",
+    "megadrive2": "genesis", "genesismegadrive": "genesis",
+    "turbografx16pcengine": "pcengine",
     "famicom": "nes", "nintendo": "nes",
     "sfc": "snes", "superfamicom": "snes", "supernintendo": "snes",
     "n64dd": "n64", "nintendo64": "n64",
@@ -69,18 +75,40 @@ ALIASES = {
 }
 
 
+VENDOR_PREFIXES = [
+    "sony", "nintendo", "sega", "microsoft", "atari", "nec", "snk",
+    "bandai", "commodore", "panasonic", "sinclair",
+]
+
+
 def normalize(folder: str) -> str:
     return "".join(c for c in folder.lower() if c.isalnum())
 
 
-def resolve(folder: str):
-    """Return (slug, info|None) for a first-level folder name."""
-    key = normalize(folder)
+def _lookup(key: str):
     if key in PLATFORMS:
         return key, PLATFORMS[key]
     if key in ALIASES:
         slug = ALIASES[key]
         return slug, PLATFORMS[slug]
+    return None
+
+
+def resolve(folder: str):
+    """Return (slug, info|None) for a folder name.
+
+    Tries the name as-is, then with vendor prefixes stripped
+    (e.g. "Sony PlayStation 2" -> "playstation2" -> ps2).
+    """
+    key = normalize(folder)
+    hit = _lookup(key)
+    if hit:
+        return hit
+    for vendor in VENDOR_PREFIXES:
+        if key.startswith(vendor) and len(key) > len(vendor):
+            hit = _lookup(key[len(vendor):])
+            if hit:
+                return hit
     return folder.lower(), None
 
 

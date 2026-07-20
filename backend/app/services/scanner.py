@@ -42,27 +42,42 @@ def clean_name(filename: str) -> str:
     return name or filename
 
 
+def _platform_for(parts):
+    """Resolve platform from a file's ancestor folders, deepest first.
+
+    Handles nested layouts like Sony/PS2/... or Nintendo/SNES/Action/...:
+    the nearest folder that matches a known platform (with vendor names
+    like "Sony PlayStation 2" understood) wins. Falls back to the
+    top-level folder name as an unknown platform.
+    """
+    for name in reversed(parts):
+        slug, info = platforms.resolve(name)
+        if info is not None:
+            return slug, info
+    return parts[0].lower(), None
+
+
 def _walk_library():
     """Yield (relative_path, platform_slug, size, filename)."""
     if not ROMS_PATH.exists():
         return
-    for entry in sorted(ROMS_PATH.iterdir()):
-        if not entry.is_dir() or entry.name.startswith("."):
+    for f in sorted(ROMS_PATH.rglob("*")):
+        if not f.is_file() or f.name.startswith("."):
             continue
-        slug, info = platforms.resolve(entry.name)
-        allowed = platforms.allowed_extensions(info)
-        for f in sorted(entry.rglob("*")):
-            if not f.is_file() or f.name.startswith("."):
-                continue
-            ext = f.suffix.lower()
-            if allowed and ext not in allowed:
-                continue
-            if not allowed and ext not in platforms.COMMON_EXT:
-                continue
-            # skip .bin files that belong to a .cue pair
-            if ext == ".bin" and f.with_suffix(".cue").exists():
-                continue
-            yield str(f.relative_to(ROMS_PATH)), slug, f.stat().st_size, f.name
+        rel = f.relative_to(ROMS_PATH)
+        parts = rel.parts[:-1]  # ancestor folders
+        if not parts or any(p.startswith(".") for p in parts):
+            continue  # files in the library root or hidden dirs are skipped
+        slug, info = _platform_for(parts)
+        ext = f.suffix.lower()
+        if ext not in platforms.allowed_extensions(info) and (
+            info is not None or ext not in platforms.COMMON_EXT
+        ):
+            continue
+        # skip .bin files that belong to a .cue pair
+        if ext == ".bin" and f.with_suffix(".cue").exists():
+            continue
+        yield str(rel), slug, f.stat().st_size, f.name
 
 
 def _scan(db):

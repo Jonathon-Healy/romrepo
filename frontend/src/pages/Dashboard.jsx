@@ -9,11 +9,13 @@ export default function Dashboard() {
   const [stats, setStats] = useState(null);
   const [scan, setScan] = useState(null);
   const [selected, setSelected] = useState(null);
+  const [featured, setFeatured] = useState(null);
 
   const refresh = () => api("/api/stats").then(setStats).catch(() => {});
 
   useEffect(() => {
     refresh();
+    api("/api/games/random").then(setFeatured).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -76,6 +78,35 @@ export default function Dashboard() {
       {scan?.phase === "error" && (
         <div className="card error-text" style={{ marginBottom: 20 }}>
           Scan failed: {scan.error}
+        </div>
+      )}
+
+      {featured && (
+        <div className="hero" onClick={() => setSelected(featured.id)}
+          style={{ cursor: "pointer" }}>
+          {featured.cover
+            ? <div className="hero-bg" style={{ backgroundImage: `url(${featured.cover})` }} />
+            : <div className="hero-fallback" />}
+          <div className="hero-content">
+            {featured.cover && (
+              <img className="hero-cover" src={featured.cover} alt="" />
+            )}
+            <div>
+              <div className="hero-tag">▸ From your collection</div>
+              <div className={"hero-title" + (featured.cover ? " hero-title-onart" : "")}>
+                {featured.name}
+              </div>
+              <div className="row wrap" style={{ gap: 8, marginTop: 10 }}>
+                <span className="chip">{featured.platform_name}</span>
+                {featured.release_year && (
+                  <span className="chip chip-dim">{featured.release_year}</span>
+                )}
+                {featured.rating && (
+                  <span className="chip chip-dim">★ {featured.rating}</span>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

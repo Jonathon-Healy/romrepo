@@ -34,6 +34,13 @@ export async function api(path, { method = "GET", body } = {}) {
   return data;
 }
 
+// stable hue per platform slug, for colored chips & art placeholders
+export function platformHue(slug) {
+  let h = 0;
+  for (const c of slug || "") h = (h * 31 + c.charCodeAt(0)) % 360;
+  return h;
+}
+
 export function formatBytes(bytes) {
   if (!bytes) return "0 B";
   const units = ["B", "KB", "MB", "GB", "TB"];

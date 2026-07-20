@@ -1,6 +1,7 @@
 """IGDB metadata client (Twitch client-credentials OAuth)."""
 import difflib
 import logging
+import re
 import time
 
 import httpx
@@ -46,15 +47,16 @@ class IGDBClient:
         self._get_token()
         return True
 
-    def search(self, name: str, igdb_platform: int | None):
+    def _query(self, name: str, igdb_platform: int | None):
         self._throttle()
         token = self._get_token()
         where = f"where platforms = ({igdb_platform});" if igdb_platform else ""
         body = (
             f'search "{name}"; '
             "fields name,summary,first_release_date,total_rating,"
-            "genres.name,cover.image_id,screenshots.image_id; "
-            f"{where} limit 8;"
+            "genres.name,cover.image_id,screenshots.image_id,"
+            "alternative_names.name; "
+            f"{where} limit 10;"
         )
         r = httpx.post(API_URL, content=body, headers={
             "Client-ID": self.client_id,
@@ -62,20 +64,36 @@ class IGDBClient:
         }, timeout=15)
         if r.status_code == 429:
             time.sleep(2)
-            return self.search(name, igdb_platform)
+            return self._query(name, igdb_platform)
         r.raise_for_status()
-        results = r.json()
-        if not results:
-            return None
-        # pick best fuzzy match on name
-        def score(g):
-            return difflib.SequenceMatcher(
-                None, name.lower(), g.get("name", "").lower()
-            ).ratio()
-        best = max(results, key=score)
-        if score(best) < 0.5:
-            return None
-        return best
+        return r.json()
+
+    @staticmethod
+    def _score(query: str, game: dict) -> float:
+        names = [game.get("name", "")]
+        names += [a.get("name", "") for a in game.get("alternative_names", [])]
+        q = query.lower()
+        return max(
+            difflib.SequenceMatcher(None, q, n.lower()).ratio()
+            for n in names if n
+        ) if any(names) else 0.0
+
+    def search(self, name: str, igdb_platform: int | None):
+        """Multi-pass search: exact w/ platform, w/o platform, then with
+        the subtitle stripped. Scores against alternative titles too."""
+        attempts = [(name, igdb_platform), (name, None)]
+        short = re.split(r"\s+[-:]\s+", name)[0].strip()
+        if short and short.lower() != name.lower():
+            attempts.append((short, igdb_platform))
+        best, best_score = None, 0.0
+        for query, plat in attempts:
+            for g in self._query(query, plat) or []:
+                s = self._score(query, g)
+                if s > best_score:
+                    best, best_score = g, s
+            if best_score >= 0.85:
+                break  # confident hit, stop early
+        return best if best_score >= 0.55 else None
 
     @staticmethod
     def cover_url(game: dict) -> str | None:

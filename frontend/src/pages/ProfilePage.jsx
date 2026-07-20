@@ -14,6 +14,13 @@ export default function ProfilePage() {
   const { user } = useAuth();
   const [theme, setThemeState] = useState(localStorage.getItem("rr_theme") || "dark");
   const [accent, setAccentState] = useState(localStorage.getItem("rr_accent") || "#7c5cff");
+  const [crt, setCrtState] = useState(localStorage.getItem("rr_crt") === "1");
+
+  const setCrt = (on) => {
+    setCrtState(on);
+    localStorage.setItem("rr_crt", on ? "1" : "0");
+    document.documentElement.dataset.crt = on ? "1" : "0";
+  };
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [msg, setMsg] = useState(null);
@@ -66,13 +73,21 @@ export default function ProfilePage() {
           ))}
         </div>
         <label>Accent color</label>
-        <div className="row" style={{ marginTop: 8 }}>
+        <div className="row" style={{ marginTop: 8, marginBottom: 16 }}>
           {ACCENTS.map((c) => (
             <button key={c} type="button" aria-label={c}
               className={"swatch" + (accent === c ? " active" : "")}
               style={{ background: c }}
               onClick={() => setAccent(c)} />
           ))}
+        </div>
+        <label>Retro vibes</label>
+        <div className="row" style={{ marginTop: 8 }}>
+          <button type="button"
+            className={"btn btn-sm" + (crt ? " btn-primary" : " btn-ghost")}
+            onClick={() => setCrt(!crt)}>
+            {crt ? "📺 CRT scanlines on" : "📺 CRT scanlines off"}
+          </button>
         </div>
       </div>
 

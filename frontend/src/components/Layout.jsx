@@ -2,16 +2,27 @@ import { useEffect, useState } from "react";
 import { NavLink, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "../api";
 import { useAuth } from "../AuthContext";
+import GameModal from "./GameModal";
 
 export default function Layout({ children }) {
   const { user, can, logout } = useAuth();
   const [platforms, setPlatforms] = useState([]);
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [randomGame, setRandomGame] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
   const [params] = useSearchParams();
   const activePlatform = location.pathname === "/library" ? params.get("platform") : null;
+  const showingFavs = location.pathname === "/library" && params.get("favorites") === "1";
+
+  const rollDice = async () => {
+    try {
+      setRandomGame(await api("/api/games/random"));
+    } catch (e) {
+      alert(e.message);
+    }
+  };
 
   useEffect(() => {
     api("/api/platforms").then(setPlatforms).catch(() => {});
@@ -32,8 +43,12 @@ export default function Layout({ children }) {
         <div className="logo">Rom<span>Repo</span></div>
         <NavLink to="/" className={item} end>Dashboard</NavLink>
         <NavLink to="/library" end
-          className={() => "nav-item" + (location.pathname === "/library" && !activePlatform ? " active" : "")}>
+          className={() => "nav-item" + (location.pathname === "/library" && !activePlatform && !showingFavs ? " active" : "")}>
           All Games
+        </NavLink>
+        <NavLink to="/library?favorites=1"
+          className={() => "nav-item" + (showingFavs ? " active" : "")}>
+          ♥ Favorites
         </NavLink>
 
         {platforms.length > 0 && <div className="nav-section">Platforms</div>}
@@ -75,9 +90,17 @@ export default function Layout({ children }) {
             <input placeholder="Search games…" value={search}
               onChange={(e) => setSearch(e.target.value)} />
           </form>
+          <button className="btn btn-ghost btn-sm dice-btn" onClick={rollDice}
+            title="Surprise me — random game">
+            🎲
+          </button>
         </div>
         <div className="content">{children}</div>
       </div>
+
+      {randomGame && (
+        <GameModal gameId={randomGame.id} onClose={() => setRandomGame(null)} />
+      )}
     </div>
   );
 }

@@ -32,7 +32,20 @@ export default function GameModal({ gameId, onClose }) {
                   }} />
                 )}
                 <div style={{ minWidth: 0 }}>
-                  <h2 style={{ fontSize: 22, marginBottom: 6 }}>{game.name}</h2>
+                  <div className="row" style={{ gap: 10 }}>
+                    <h2 style={{ fontSize: 22, marginBottom: 6 }}>{game.name}</h2>
+                    <button className={"fav-btn on"}
+                      style={{ position: "static", opacity: 1, transform: "none",
+                        color: game.favorite ? "#ff5c8a" : "var(--text-dim)" }}
+                      onClick={async () => {
+                        const next = !game.favorite;
+                        setGame({ ...game, favorite: next });
+                        api(`/api/games/${game.id}/favorite`,
+                          { method: next ? "PUT" : "DELETE" }).catch(() => {});
+                      }}>
+                      {game.favorite ? "♥" : "♡"}
+                    </button>
+                  </div>
                   <div className="row wrap" style={{ gap: 8, marginBottom: 12 }}>
                     <span className="chip">{game.platform_name}</span>
                     {game.release_year && <span className="chip chip-dim">{game.release_year}</span>}

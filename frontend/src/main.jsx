@@ -8,6 +8,7 @@ import "./styles.css";
 const theme = localStorage.getItem("rr_theme") || "dark";
 const accent = localStorage.getItem("rr_accent") || "#7c5cff";
 document.documentElement.dataset.theme = theme;
+document.documentElement.dataset.crt = localStorage.getItem("rr_crt") === "1" ? "1" : "0";
 document.documentElement.style.setProperty("--accent", accent);
 
 ReactDOM.createRoot(document.getElementById("root")).render(

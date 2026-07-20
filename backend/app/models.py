@@ -80,6 +80,12 @@ class Game(Base):
         return json.loads(self.screenshots_json or "[]")
 
 
+class Favorite(Base):
+    __tablename__ = "favorites"
+    user_id = Column(Integer, ForeignKey("users.id"), primary_key=True)
+    game_id = Column(Integer, ForeignKey("games.id"), primary_key=True)
+
+
 class Setting(Base):
     __tablename__ = "settings"
     key = Column(String, primary_key=True)

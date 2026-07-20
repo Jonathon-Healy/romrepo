@@ -1,3 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap");
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
@@ -105,12 +107,20 @@ label { font-size: 13px; color: var(--text-dim); display: block; margin-bottom: 
   transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .logo {
-  font-size: 20px;
-  font-weight: 800;
-  padding: 4px 10px 18px;
-  letter-spacing: -0.5px;
+  font-family: "Press Start 2P", var(--font);
+  font-size: 15px;
+  padding: 8px 10px 20px;
+  line-height: 1.5;
 }
-.logo span { color: var(--accent); }
+.logo span {
+  background: linear-gradient(90deg, var(--accent), #ff5c8a, #ffb84d, var(--accent));
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: logoShift 6s linear infinite;
+}
+@keyframes logoShift { to { background-position: 300% 0; } }
 .nav-section {
   font-size: 11px;
   text-transform: uppercase;
@@ -176,14 +186,30 @@ label { font-size: 13px; color: var(--text-dim); display: block; margin-bottom: 
   border-radius: var(--radius);
   overflow: hidden;
   cursor: pointer;
-  transition: transform 0.22s cubic-bezier(0.34, 1.4, 0.64, 1), box-shadow 0.22s;
+  transition: transform 0.15s ease-out, box-shadow 0.25s, border-color 0.25s;
   animation: fadeUp 0.4s ease both;
+  transform-style: preserve-3d;
+  will-change: transform;
+  position: relative;
 }
 .game-card:hover {
-  transform: translateY(-6px) scale(1.02);
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow), 0 0 24px color-mix(in srgb, var(--accent) 35%, transparent);
   border-color: var(--accent);
+  z-index: 2;
 }
+/* shine sweep following the cursor */
+.game-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.25s;
+  background: radial-gradient(
+    420px circle at var(--mx, 50%) var(--my, 30%),
+    rgba(255, 255, 255, 0.14), transparent 45%);
+}
+.game-card:hover::after { opacity: 1; }
 .cover {
   aspect-ratio: 3 / 4;
   width: 100%;
@@ -207,10 +233,43 @@ label { font-size: 13px; color: var(--text-dim); display: block; margin-bottom: 
   padding: 14px;
   text-align: center;
   font-weight: 700;
-  font-size: 14px;
-  color: var(--text-dim);
-  background: linear-gradient(160deg, var(--bg3), color-mix(in srgb, var(--accent) 18%, var(--bg3)));
+  font-size: 13px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.92);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.5);
+  background:
+    repeating-linear-gradient(45deg, rgba(255,255,255,0.05) 0 10px, transparent 10px 20px),
+    linear-gradient(160deg,
+      hsl(var(--phue, 260) 55% 34%),
+      hsl(calc(var(--phue, 260) + 50) 60% 22%));
 }
+.fav-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  border: none;
+  cursor: pointer;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(4px);
+  border-radius: 999px;
+  width: 32px;
+  height: 32px;
+  font-size: 15px;
+  line-height: 1;
+  color: #fff;
+  opacity: 0;
+  transform: scale(0.8);
+  transition: opacity 0.2s, transform 0.2s cubic-bezier(0.34, 1.6, 0.64, 1);
+}
+.game-card:hover .fav-btn, .fav-btn.on { opacity: 1; transform: scale(1); }
+.fav-btn.on { color: #ff5c8a; }
+.fav-btn:hover { transform: scale(1.18); }
+@keyframes heartPop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.45); }
+  100% { transform: scale(1); }
+}
+.fav-btn.pop { animation: heartPop 0.35s ease; }
 .card-body { padding: 10px 12px 12px; }
 .card-title {
   font-size: 13.5px;
@@ -414,6 +473,96 @@ label { font-size: 13px; color: var(--text-dim); display: block; margin-bottom: 
   border-radius: 8px;
   aspect-ratio: 16/9;
   object-fit: cover;
+}
+
+/* ---------- platform chips ---------- */
+.chip-platform {
+  background: hsl(var(--phue, 260) 60% 50% / 0.18);
+  color: hsl(var(--phue, 260) 80% 72%);
+}
+[data-theme="light"] .chip-platform { color: hsl(var(--phue, 260) 65% 38%); }
+
+/* ---------- dashboard hero ---------- */
+.hero {
+  position: relative;
+  border-radius: 18px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  margin-bottom: 24px;
+  min-height: 220px;
+  display: flex;
+  align-items: flex-end;
+  animation: fadeUp 0.4s ease both;
+}
+.hero-bg {
+  position: absolute;
+  inset: -20px;
+  background-size: cover;
+  background-position: center 30%;
+  filter: blur(14px) brightness(0.45) saturate(1.3);
+  transform: scale(1.1);
+}
+.hero-fallback {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(600px 300px at 15% 0%, color-mix(in srgb, var(--accent) 45%, transparent), transparent),
+    radial-gradient(500px 280px at 90% 100%, rgba(255, 92, 138, 0.35), transparent),
+    var(--bg2);
+}
+.hero-content {
+  position: relative;
+  display: flex;
+  gap: 20px;
+  align-items: flex-end;
+  padding: 22px;
+  width: 100%;
+}
+.hero-cover {
+  width: 120px;
+  border-radius: 10px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+  flex-shrink: 0;
+  transition: transform 0.3s ease;
+}
+.hero:hover .hero-cover { transform: translateY(-4px) rotate(-1.5deg); }
+.hero-tag {
+  font-family: "Press Start 2P", var(--font);
+  font-size: 9px;
+  letter-spacing: 1px;
+  color: var(--accent);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+.hero-title { font-size: 24px; font-weight: 800; color: #fff; text-shadow: 0 2px 12px rgba(0,0,0,.6); }
+[data-theme="light"] .hero-title { color: var(--text); text-shadow: none; }
+.hero-title-onart { color: #fff !important; text-shadow: 0 2px 12px rgba(0,0,0,.6) !important; }
+
+/* ---------- CRT scanlines mode ---------- */
+[data-crt="1"] body::after,
+[data-crt="1"] .crt-overlay {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  background: repeating-linear-gradient(
+    0deg, rgba(0, 0, 0, 0.14) 0 1px, transparent 1px 3px);
+  mix-blend-mode: multiply;
+  animation: crtFlicker 4s infinite;
+}
+@keyframes crtFlicker {
+  0%, 100% { opacity: 1; }
+  97% { opacity: 1; }
+  98% { opacity: 0.82; }
+}
+
+/* dice button */
+.dice-btn { font-size: 17px; }
+.dice-btn:hover { animation: diceRoll 0.5s ease; }
+@keyframes diceRoll {
+  50% { transform: rotate(180deg) scale(1.15); }
+  100% { transform: rotate(360deg); }
 }
 
 /* ---------- responsive ---------- */

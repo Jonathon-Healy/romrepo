@@ -18,6 +18,7 @@ export default function Library() {
   const platform = params.get("platform") || "";
   const search = params.get("search") || "";
   const sort = params.get("sort") || "name";
+  const favorites = params.get("favorites") === "1";
 
   const [games, setGames] = useState([]);
   const [total, setTotal] = useState(0);
@@ -33,6 +34,7 @@ export default function Library() {
       const qs = new URLSearchParams({ page: pageNum, page_size: 60, sort });
       if (platform) qs.set("platform", platform);
       if (search) qs.set("search", search);
+      if (favorites) qs.set("favorites", "1");
       const res = await api(`/api/games?${qs}`);
       if (id !== reqId.current) return;
       setTotal(res.total);
@@ -45,7 +47,7 @@ export default function Library() {
 
   useEffect(() => {
     load(1, false);
-  }, [platform, search, sort]);
+  }, [platform, search, sort, favorites]);
 
   const setSort = (value) => {
     const next = new URLSearchParams(params);
@@ -58,7 +60,9 @@ export default function Library() {
       <div className="row spread wrap" style={{ marginBottom: 18 }}>
         <div>
           <div className="page-title">
-            {search ? `Search: “${search}”` : platform ? games[0]?.platform_name || "Library" : "All Games"}
+            {favorites ? "♥ Favorites"
+              : search ? `Search: “${search}”`
+              : platform ? games[0]?.platform_name || "Library" : "All Games"}
           </div>
           <div className="page-sub" style={{ marginBottom: 0 }}>{total} games</div>
         </div>
@@ -80,7 +84,13 @@ export default function Library() {
           <div className="game-grid">
             {games.map((g, i) => (
               <GameCard key={g.id} game={g} index={i % 60}
-                onClick={() => setSelected(g.id)} />
+                onClick={() => setSelected(g.id)}
+                onFavChange={(id, val) => {
+                  if (favorites && !val) {
+                    setGames((prev) => prev.filter((x) => x.id !== id));
+                    setTotal((t) => t - 1);
+                  }
+                }} />
             ))}
           </div>
           {games.length < total && (

@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from ..config import ROMS_PATH
 from ..database import get_db
-from ..models import Game, User
+from ..models import Favorite, Game, User
 from ..security import decode_token, make_token, require
 from ..services import platforms
 
@@ -21,7 +21,11 @@ SORTS = {
 }
 
 
-def _game_out(g: Game, detail=False):
+def _fav_ids(db: Session, user: User) -> set:
+    return {gid for (gid,) in db.query(Favorite.game_id).filter_by(user_id=user.id)}
+
+
+def _game_out(g: Game, detail=False, fav_ids=frozenset()):
     out = {
         "id": g.id,
         "name": g.name,
@@ -33,6 +37,7 @@ def _game_out(g: Game, detail=False):
         "rating": g.rating,
         "cover": f"/api/art/{g.cover_file}" if g.cover_file else None,
         "matched": g.matched,
+        "favorite": g.id in fav_ids,
     }
     if detail:
         out.update({
@@ -52,12 +57,16 @@ def list_games(
     platform: str | None = None,
     search: str | None = None,
     sort: str = "name",
+    favorites: bool = False,
     page: int = Query(1, ge=1),
     page_size: int = Query(60, ge=1, le=200),
 ):
+    fav_ids = _fav_ids(db, user)
     q = db.query(Game)
     if platform:
         q = q.filter(Game.platform == platform)
+    if favorites:
+        q = q.filter(Game.id.in_(fav_ids or {-1}))
     if search:
         like = f"%{search}%"
         q = q.filter(or_(Game.name.ilike(like), Game.filename.ilike(like)))
@@ -65,7 +74,20 @@ def list_games(
     order = SORTS.get(sort, SORTS["name"])
     rows = q.order_by(order, Game.id).offset((page - 1) * page_size).limit(page_size).all()
     return {"total": total, "page": page, "page_size": page_size,
-            "games": [_game_out(g) for g in rows]}
+            "games": [_game_out(g, fav_ids=fav_ids) for g in rows]}
+
+
+@router.get("/games/random")
+def random_game(db: Session = Depends(get_db),
+                user: User = Depends(require("library.view")),
+                platform: str | None = None):
+    q = db.query(Game)
+    if platform:
+        q = q.filter(Game.platform == platform)
+    g = q.order_by(func.random()).first()
+    if not g:
+        raise HTTPException(404, "Library is empty")
+    return _game_out(g, detail=True, fav_ids=_fav_ids(db, user))
 
 
 @router.get("/games/{game_id}")
@@ -74,7 +96,28 @@ def game_detail(game_id: int, db: Session = Depends(get_db),
     g = db.get(Game, game_id)
     if not g:
         raise HTTPException(404, "Game not found")
-    return _game_out(g, detail=True)
+    return _game_out(g, detail=True, fav_ids=_fav_ids(db, user))
+
+
+@router.put("/games/{game_id}/favorite")
+def add_favorite(game_id: int, db: Session = Depends(get_db),
+                 user: User = Depends(require("library.view"))):
+    if not db.get(Game, game_id):
+        raise HTTPException(404, "Game not found")
+    if not db.get(Favorite, (user.id, game_id)):
+        db.add(Favorite(user_id=user.id, game_id=game_id))
+        db.commit()
+    return {"favorite": True}
+
+
+@router.delete("/games/{game_id}/favorite")
+def remove_favorite(game_id: int, db: Session = Depends(get_db),
+                    user: User = Depends(require("library.view"))):
+    fav = db.get(Favorite, (user.id, game_id))
+    if fav:
+        db.delete(fav)
+        db.commit()
+    return {"favorite": False}
 
 
 @router.get("/platforms")

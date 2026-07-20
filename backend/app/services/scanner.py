@@ -7,8 +7,8 @@ import threading
 
 from ..config import ART_PATH, ROMS_PATH
 from ..database import SessionLocal
-from ..models import Game, get_setting
-from . import platforms
+from ..models import Favorite, Game, get_setting
+from . import libretro, platforms
 from .igdb import IGDBClient, download_image
 
 log = logging.getLogger("romrepo.scanner")
@@ -102,6 +102,7 @@ def _scan(db):
         if path not in seen:
             if g.cover_file:
                 (ART_PATH / g.cover_file).unlink(missing_ok=True)
+            db.query(Favorite).filter_by(game_id=g.id).delete()
             db.delete(g)
             status["removed"] += 1
     db.commit()
@@ -110,10 +111,9 @@ def _scan(db):
 def _match_metadata(db):
     client_id = get_setting(db, "igdb_client_id")
     client_secret = get_setting(db, "igdb_client_secret")
-    if not client_id or not client_secret:
-        log.info("IGDB credentials not set; skipping metadata pass")
-        return
-    client = IGDBClient(client_id, client_secret)
+    client = IGDBClient(client_id, client_secret) if client_id and client_secret else None
+    if not client:
+        log.info("IGDB credentials not set; using libretro-thumbnails art only")
     pending = db.query(Game).filter(
         Game.matched.is_(False), Game.match_failed.is_(False)
     ).all()
@@ -129,32 +129,39 @@ def _match_metadata(db):
         status["done"] += 1
 
 
-def _match_one(client: IGDBClient, g: Game):
+def _match_one(client: IGDBClient | None, g: Game):
     info = platforms.PLATFORMS.get(g.platform)
     igdb_platform = info["igdb"] if info else None
     query = MULTIDISC_HINT.sub("", g.name).strip()
-    result = client.search(query, igdb_platform)
-    if not result:
+    result = client.search(query, igdb_platform) if client else None
+    if result:
+        g.igdb_id = result.get("id")
+        g.name = result.get("name") or g.name
+        g.summary = result.get("summary")
+        if result.get("first_release_date"):
+            import datetime
+            g.release_year = datetime.datetime.fromtimestamp(
+                result["first_release_date"], datetime.timezone.utc
+            ).year
+        g.genres = ", ".join(
+            x["name"] for x in result.get("genres", []) if x.get("name")) or None
+        g.rating = round(result["total_rating"], 1) if result.get("total_rating") else None
+        cover = client.cover_url(result)
+        if cover:
+            fname = f"{g.id}_cover.jpg"
+            if download_image(cover, ART_PATH / fname):
+                g.cover_file = fname
+        g.screenshots_json = json.dumps(client.screenshot_urls(result))
+        g.matched = True
+    else:
         g.match_failed = True
-        return
-    g.igdb_id = result.get("id")
-    g.name = result.get("name") or g.name
-    g.summary = result.get("summary")
-    if result.get("first_release_date"):
-        import datetime
-        g.release_year = datetime.datetime.fromtimestamp(
-            result["first_release_date"], datetime.timezone.utc
-        ).year
-    g.genres = ", ".join(x["name"] for x in result.get("genres", []) if x.get("name")) or None
-    g.rating = round(result["total_rating"], 1) if result.get("total_rating") else None
-    cover = client.cover_url(result)
-    if cover:
-        fname = f"{g.id}_cover.jpg"
-        if download_image(cover, ART_PATH / fname):
+    # art fallback: libretro-thumbnails (keyed on No-Intro filenames, no API key)
+    if not g.cover_file:
+        fname = f"{g.id}_cover.png"
+        if libretro.fetch_cover(g.platform, g.filename, g.name, ART_PATH / fname):
             g.cover_file = fname
-    g.screenshots_json = json.dumps(client.screenshot_urls(result))
-    g.matched = True
-    status["matched"] += 1
+    if g.matched or g.cover_file:
+        status["matched"] += 1
 
 
 def _run():

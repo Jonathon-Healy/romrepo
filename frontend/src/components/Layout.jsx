@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { NavLink, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "../api";
 import { useAuth } from "../AuthContext";
@@ -10,6 +10,8 @@ export default function Layout({ children }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [randomGame, setRandomGame] = useState(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const avatarRef = useRef(null);
   const navigate = useNavigate();
   const location = useLocation();
   const [params] = useSearchParams();
@@ -28,7 +30,17 @@ export default function Layout({ children }) {
     api("/api/platforms").then(setPlatforms).catch(() => {});
   }, [location.key]);
 
-  useEffect(() => setOpen(false), [location]);
+  useEffect(() => { setOpen(false); setMenuOpen(false); }, [location]);
+
+  useEffect(() => {
+    const onDoc = (e) => {
+      if (avatarRef.current && !avatarRef.current.contains(e.target)) setMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, []);
+
+  const initials = (user.username || "?").trim().slice(0, 2).toUpperCase();
 
   const submitSearch = (e) => {
     e.preventDefault();
@@ -75,12 +87,6 @@ export default function Layout({ children }) {
         )}
 
         <div style={{ flex: 1 }} />
-        <NavLink to="/profile" className={item}>
-          {user.username} · {user.role}
-        </NavLink>
-        <button className="btn btn-ghost btn-sm" onClick={logout} style={{ margin: "8px 10px" }}>
-          Sign out
-        </button>
       </aside>
 
       {open && <div onClick={() => setOpen(false)}
@@ -99,6 +105,26 @@ export default function Layout({ children }) {
             title="Surprise me — random game">
             🎲
           </button>
+          <div className="avatar-wrap" ref={avatarRef}>
+            <button className="avatar" onClick={() => setMenuOpen((o) => !o)}
+              title={`${user.username} · ${user.role}`} aria-label="Account menu">
+              {initials}
+            </button>
+            {menuOpen && (
+              <div className="avatar-menu">
+                <div className="avatar-head">
+                  <div className="avatar-name">{user.username}</div>
+                  <div className="muted" style={{ fontSize: 12 }}>{user.role}</div>
+                </div>
+                <button className="avatar-item" onClick={() => navigate("/profile")}>
+                  ⚙ Profile & appearance
+                </button>
+                <button className="avatar-item danger" onClick={logout}>
+                  ⎋ Sign out
+                </button>
+              </div>
+            )}
+          </div>
         </div>
         <div className="content">{children}</div>
       </div>

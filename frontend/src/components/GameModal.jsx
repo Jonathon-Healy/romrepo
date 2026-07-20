@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import { api, downloadGame, formatBytes } from "../api";
 import { useAuth } from "../AuthContext";
+import GamePlayer, { isPlayable } from "./GamePlayer";
 
 export default function GameModal({ gameId, onClose }) {
   const { can } = useAuth();
   const [game, setGame] = useState(null);
   const [error, setError] = useState(null);
   const [fixing, setFixing] = useState(false);
+  const [playing, setPlaying] = useState(false);
 
   const loadGame = () =>
     api(`/api/games/${gameId}`).then(setGame).catch((e) => setError(e.message));
@@ -96,8 +98,14 @@ export default function GameModal({ gameId, onClose }) {
                       🎯 Fix match
                     </button>
                   )}
+                  {can("library.download") && isPlayable(game.platform) && (
+                    <button className="btn btn-primary" onClick={() => setPlaying(true)}
+                      title="Play in your browser">
+                      ▶ Play
+                    </button>
+                  )}
                   {can("library.download") && (
-                    <button className="btn btn-primary"
+                    <button className="btn btn-ghost"
                       onClick={() => downloadGame(game.id).catch((e) => alert(e.message))}>
                       ⬇ Download
                     </button>
@@ -109,6 +117,9 @@ export default function GameModal({ gameId, onClose }) {
           )}
         </div>
       </div>
+      {playing && game && (
+        <GamePlayer game={game} onClose={() => setPlaying(false)} />
+      )}
     </div>
   );
 }

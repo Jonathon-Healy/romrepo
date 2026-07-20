@@ -208,3 +208,32 @@ def download(game_id: int, token: str, db: Session = Depends(get_db)):
     db.commit()
     return FileResponse(file_path, filename=g.filename,
                         media_type="application/octet-stream")
+
+
+# ---------- in-browser play (emulator streams ROM bytes) ----------
+
+@router.post("/games/{game_id}/play-token")
+def play_token(game_id: int, db: Session = Depends(get_db),
+               user: User = Depends(require("library.download"))):
+    g = db.get(Game, game_id)
+    if not g:
+        raise HTTPException(404, "Game not found")
+    token = make_token(user.id, scope=f"play:{game_id}", ttl_seconds=600)
+    return {"url": f"/api/games/{game_id}/stream?token={token}"}
+
+
+@router.get("/games/{game_id}/stream")
+def stream(game_id: int, token: str, db: Session = Depends(get_db)):
+    """Serve ROM bytes inline for the in-browser emulator. Unlike /download
+    this does not force an attachment and does not count as a download."""
+    user_id = decode_token(token, scope=f"play:{game_id}")
+    user = db.get(User, user_id)
+    if not user or user.disabled or "library.download" not in user.permissions:
+        raise HTTPException(403, "Play not allowed")
+    g = db.get(Game, game_id)
+    if not g:
+        raise HTTPException(404, "Game not found")
+    file_path = (ROMS_PATH / g.path).resolve()
+    if not str(file_path).startswith(str(ROMS_PATH.resolve())) or not file_path.is_file():
+        raise HTTPException(404, "File missing on disk")
+    return FileResponse(file_path, media_type="application/octet-stream")

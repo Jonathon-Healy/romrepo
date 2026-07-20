@@ -1,6 +1,12 @@
 # RomRepo — agent handoff notes
 
-Self-hosted rom/ISO library manager (think Jellyfin for emulation). FastAPI + SQLite backend, React (Vite) frontend, single Docker image, deployed on the owner's unraid server. Everything below is current as of 2026-07-19 (v1.2).
+Self-hosted rom/ISO library manager (think Jellyfin for emulation). FastAPI + SQLite backend, React (Vite) frontend, single Docker image, deployed on the owner's unraid server. Everything below is current as of 2026-07-19 (v1.3).
+
+## What's new in v1.3
+
+- **Account avatar menu.** The old bottom-of-sidebar profile link (easy to miss) is gone; the topbar now has a circular initials avatar (`.avatar` in styles.css, markup in Layout.jsx) that opens a dropdown with username/role, "Profile & appearance", and "Sign out". Closes on outside-click / route change.
+- **In-browser GBA play (EmulatorJS).** "▶ Play" in GameModal for playable platforms (`CORES` map in GamePlayer.jsx: gba/gbc/gb → mGBA-family cores). GamePlayer.jsx renders a full-screen `.player-overlay` hosting an **iframe → `/play.html`** (static loader in `frontend/public/`, copied to dist root by Vite, served by the SPA catch-all since it `is_file()`). The iframe boots EmulatorJS from `cdn.emulatorjs.org/stable/data/` (needs client internet) with `EJS_core`, `EJS_gameUrl`, stable `EJS_gameName=romrepo-<id>`. Saves (battery + save states) persist in the browser's IndexedDB — same-origin iframe so durable across sessions. Gamepad works out of the box; remapping is in EmulatorJS's own ⚙ → Controls (keyboard AND gamepad). Isolating in an iframe = clean teardown on exit (no WASM/global leakage into the SPA).
+- **ROM streaming endpoints.** `POST /api/games/{id}/play-token` (gated `library.download`, 10-min JWT scope `play:<id>`) → `GET /api/games/{id}/stream?token=` serves bytes **inline** (no attachment, does NOT increment `download_count`, unlike `/download`). Token is game-bound like the download token.
 
 ## What's new in v1.2
 

@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>RomRepo — Play</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+    #game { width: 100vw; height: 100vh; }
+    #rr-error {
+      color: #e8eaf0; font-family: system-ui, sans-serif; padding: 40px;
+      max-width: 520px; margin: 0 auto; line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+  <div id="game"></div>
+  <script>
+    (function () {
+      var p = new URLSearchParams(location.search);
+      var rom = p.get("rom");
+      if (!rom) {
+        document.getElementById("game").innerHTML =
+          '<div id="rr-error">No ROM specified.</div>';
+        return;
+      }
+      // --- EmulatorJS configuration ---
+      window.EJS_player = "#game";
+      window.EJS_core = p.get("core") || "gba";        // gba -> mGBA core
+      window.EJS_gameUrl = rom;                          // token-scoped stream URL
+      // Stable per-game key so battery saves + save states persist across sessions.
+      window.EJS_gameName = p.get("name") || "romrepo-game";
+      window.EJS_pathtodata = "https://cdn.emulatorjs.org/stable/data/";
+      window.EJS_startOnLoaded = true;
+      window.EJS_color = p.get("accent") || "#7c5cff";
+      window.EJS_backgroundColor = "#000000";
+      // Persist saves to the browser (IndexedDB). Same-origin iframe => durable.
+      window.EJS_disableDatabases = false;
+      // Gamepad works out of the box; remapping lives in the in-emulator
+      // Settings (gear) -> Controls panel (keyboard AND gamepad, per-player).
+
+      var s = document.createElement("script");
+      s.src = "https://cdn.emulatorjs.org/stable/data/loader.js";
+      s.onerror = function () {
+        document.getElementById("game").innerHTML =
+          '<div id="rr-error">Could not load the emulator (needs internet access ' +
+          'to cdn.emulatorjs.org). Check the connection and try again.</div>';
+      };
+      document.body.appendChild(s);
+    })();
+  </script>
+</body>
+</html>

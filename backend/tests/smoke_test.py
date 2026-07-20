@@ -109,4 +109,13 @@ assert c.get(f"/api/games/{gid}", headers=H).json()["download_count"] >= 1, "dow
 r = c.get("/api/duplicates", headers=H)
 assert r.status_code == 200 and r.json()["total_groups"] == 0, r.text
 
+# in-browser play: token-scoped inline stream (no attachment, game-bound)
+purl = c.post(f"/api/games/{gid}/play-token", headers=H).json()["url"]
+r = c.get(purl)
+assert r.status_code == 200 and "attachment" not in r.headers.get("content-disposition", ""), (
+    r.status_code, dict(r.headers))
+assert c.get(purl.replace(f"/games/{gid}/", f"/games/{other}/")).status_code == 401
+# a download token must not work on the play route and vice-versa
+assert c.get(f"/api/games/{gid}/stream?token=bogus").status_code == 401
+
 print("ALL BACKEND TESTS PASSED")

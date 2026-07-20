@@ -45,6 +45,9 @@ def _game_out(g: Game, detail=False, fav_ids=frozenset()):
             "genres": g.genres,
             "screenshots": g.screenshots,
             "path": g.path,
+            "igdb_id": g.igdb_id,
+            "match_failed": g.match_failed,
+            "download_count": g.download_count or 0,
             "added_at": g.added_at.isoformat() if g.added_at else None,
         })
     return out
@@ -138,11 +141,45 @@ def stats(db: Session = Depends(get_db),
     size = db.query(func.sum(Game.size)).scalar() or 0
     matched = db.query(func.count(Game.id)).filter(Game.matched.is_(True)).scalar() or 0
     platform_count = db.query(func.count(func.distinct(Game.platform))).scalar() or 0
+    downloads = db.query(func.sum(Game.download_count)).scalar() or 0
     recent = (db.query(Game).order_by(Game.added_at.desc(), Game.id.desc())
               .limit(12).all())
     return {"total_games": total, "total_size": size, "matched": matched,
-            "platforms": platform_count,
+            "platforms": platform_count, "downloads": downloads,
             "recent": [_game_out(g) for g in recent]}
+
+
+@router.get("/duplicates")
+def duplicates(db: Session = Depends(get_db),
+               user: User = Depends(require("scan.run"))):
+    """Group games whose titles collapse to the same base name (ignoring
+    region/format/disc/version cruft) so the owner can spot redundant copies
+    across regions, formats, or platforms."""
+    import re
+    from ..services.scanner import MULTIDISC_HINT, clean_name
+
+    def norm(g: Game) -> str:
+        base = MULTIDISC_HINT.sub("", clean_name(g.filename))
+        return re.sub(r"[^a-z0-9]", "", base.lower())
+
+    fav_ids = _fav_ids(db, user)
+    groups: dict[str, list[Game]] = {}
+    for g in db.query(Game).all():
+        key = norm(g)
+        if key:
+            groups.setdefault(key, []).append(g)
+    dupes = [
+        {
+            "title": max((g.name for g in gs), key=len),
+            "count": len(gs),
+            "platforms": sorted({g.platform for g in gs}),
+            "total_size": sum(g.size or 0 for g in gs),
+            "games": [_game_out(g, detail=True, fav_ids=fav_ids) for g in gs],
+        }
+        for gs in groups.values() if len(gs) > 1
+    ]
+    dupes.sort(key=lambda d: (-d["count"], d["title"].lower()))
+    return {"groups": dupes, "total_groups": len(dupes)}
 
 
 @router.post("/games/{game_id}/download-token")
@@ -167,5 +204,7 @@ def download(game_id: int, token: str, db: Session = Depends(get_db)):
     file_path = (ROMS_PATH / g.path).resolve()
     if not str(file_path).startswith(str(ROMS_PATH.resolve())) or not file_path.is_file():
         raise HTTPException(404, "File missing on disk")
+    g.download_count = (g.download_count or 0) + 1
+    db.commit()
     return FileResponse(file_path, filename=g.filename,
                         media_type="application/octet-stream")

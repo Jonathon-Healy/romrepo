@@ -14,6 +14,24 @@ logging.basicConfig(level=logging.INFO)
 Base.metadata.create_all(bind=engine)
 
 
+def _migrate():
+    """create_all() does NOT add columns to existing tables. Apply additive
+    column migrations here so the owner's live /data DB picks them up."""
+    from sqlalchemy import text
+    migrations = [
+        ("games", "download_count", "ALTER TABLE games ADD COLUMN download_count INTEGER DEFAULT 0"),
+    ]
+    with engine.begin() as conn:
+        for table, column, ddl in migrations:
+            cols = {row[1] for row in conn.execute(text(f"PRAGMA table_info({table})"))}
+            if column not in cols:
+                conn.execute(text(ddl))
+                logging.getLogger("romrepo").info("migrated: added %s.%s", table, column)
+
+
+_migrate()
+
+
 def _seed_roles():
     from .database import SessionLocal
     from .models import ALL_PERMISSIONS, Role

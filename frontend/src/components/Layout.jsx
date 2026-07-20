@@ -62,12 +62,17 @@ export default function Layout({ children }) {
           </NavLink>
         ))}
 
-        {(can("users.manage") || can("settings.manage")) && (
-          <div className="nav-section">Admin</div>
+        {(can("users.manage") || can("roles.manage") || can("settings.manage") || can("scan.run")) && (
+          <>
+            <div className="nav-section admin">⚙ Admin</div>
+            <div className="nav-admin-group">
+              {can("users.manage") && <NavLink to="/users" className={item}>Users</NavLink>}
+              {can("roles.manage") && <NavLink to="/roles" className={item}>Roles</NavLink>}
+              {can("scan.run") && <NavLink to="/duplicates" className={item}>Duplicates</NavLink>}
+              {can("settings.manage") && <NavLink to="/settings" className={item}>Settings</NavLink>}
+            </div>
+          </>
         )}
-        {can("users.manage") && <NavLink to="/users" className={item}>Users</NavLink>}
-        {can("roles.manage") && <NavLink to="/roles" className={item}>Roles</NavLink>}
-        {can("settings.manage") && <NavLink to="/settings" className={item}>Settings</NavLink>}
 
         <div style={{ flex: 1 }} />
         <NavLink to="/profile" className={item}>

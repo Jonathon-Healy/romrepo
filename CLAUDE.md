@@ -1,6 +1,15 @@
 # RomRepo — agent handoff notes
 
-Self-hosted rom/ISO library manager (think Jellyfin for emulation). FastAPI + SQLite backend, React (Vite) frontend, single Docker image, deployed on the owner's unraid server. Everything below is current as of 2026-07-19 (v1.1).
+Self-hosted rom/ISO library manager (think Jellyfin for emulation). FastAPI + SQLite backend, React (Vite) frontend, single Docker image, deployed on the owner's unraid server. Everything below is current as of 2026-07-19 (v1.2).
+
+## What's new in v1.2
+
+- **Sidebar Admin block** is visually segmented from the platform list (accent-tinted group with a top divider + left rule; see `.nav-section.admin` / `.nav-admin-group` in styles.css, markup in Layout.jsx).
+- **10 themes total.** Added synthwave, gameboy, amber (CRT), matrix, nord, dracula, gruvbox to dark/oled/light. Each is a `[data-theme=…]` CSS-var block in styles.css; the picker in ProfilePage.jsx renders a mini colour-swatch tile per theme.
+- **Per-user pop-up scaling + grid density.** ProfilePage sliders write `rr_modal_scale` (0.8–1.6) and `rr_card_w` (120–240px) to localStorage, applied as `--modal-scale` / `--card-w` on `<html>` (bootstrapped in main.jsx). The modal reads `--modal-scale` via `.modal` max-width and `.modal-cover` width. Scaling has a live mini-modal preview.
+- **Manual match fixer.** Admin-only "🎯 Fix match" in GameModal → searches IGDB (`GET /api/games/{id}/match-candidates?q=`), pick a candidate → `POST /api/games/{id}/apply-match {igdb_id}`. Both gated on `scan.run`, need IGDB creds. Field/art application refactored into `scanner.apply_result(client, game, result)` (shared with the auto-matcher); IGDB client gained `raw_search()` and `by_id()`.
+- **Duplicate finder.** `GET /api/duplicates` (gated `scan.run`) groups games whose titles collapse to the same base (clean_name minus disc/region/version cruft), across regions/formats/platforms. New DuplicatesPage.jsx at `/duplicates`, linked in the Admin block.
+- **Download stats.** `Game.download_count` incremented on successful download; surfaced in the modal (⬇ N) and a Dashboard "Downloads" stat (`stats.downloads`). Added via the new startup migration runner (see below).
 
 ## Repo layout
 
@@ -37,7 +46,7 @@ Dockerfile          multi-stage: node:20-alpine builds frontend → python:3.12-
 
 ## Gotchas / sharp edges
 
-- **`Base.metadata.create_all` does NOT migrate.** Adding columns to existing tables silently no-ops against the owner's live DB in /data. Adding a *new table* is fine (that's how Favorite shipped). If you must add a column, write an explicit `ALTER TABLE` migration at startup or tell the owner to wipe `/data/romrepo.db` (loses users/favorites — art cache too if you clear the folder).
+- **`Base.metadata.create_all` does NOT migrate.** Adding columns to existing tables silently no-ops against the owner's live DB in /data. Adding a *new table* is fine (that's how Favorite shipped). There is now a `_migrate()` runner in main.py: a PRAGMA-guarded additive-column list (`ALTER TABLE … ADD COLUMN`) that runs at startup — that's how `download_count` reaches the live DB. **Add future columns to that list**, don't rely on create_all.
 - **GHCR image name must stay lowercase** (`ghcr.io/jonathon-healy/romrepo`) — `github.repository` is `Jonathon-Healy/romrepo` and breaks docker tags; the workflow hardcodes lowercase.
 - **The GHCR package is not public yet.** No Actions build has succeeded (GitHub Actions had an outage during setup — runs showed "Startup failure"). After the first green build: repo → Packages → romrepo → Package settings → Change visibility → Public. Until then `docker pull ghcr.io/...` returns `denied`.
 - `/api/games/random` must stay declared **before** `/api/games/{game_id}` in games.py.
@@ -65,7 +74,7 @@ Fixture used originally: `snes/Super Mario World (USA).sfc`, `snes/Legend of Zel
 
 ## Backlog (proposed to owner, not yet accepted)
 
-Collections/tags (custom shelves), duplicate finder (same title across regions/formats), manual match fixer UI (search IGDB, pick correct art — probably highest value since auto-matching is never perfect), hash-based identification (CRC32 vs No-Intro DAT files for exact matches), download stats. ScreenScraper/TheGamesDB scrapers were skipped because both require dev API keys.
+Collections/tags (custom shelves), hash-based identification (CRC32 vs No-Intro DAT files for exact matches). ScreenScraper/TheGamesDB scrapers were skipped because both require dev API keys. **Shipped in v1.2:** manual match fixer, duplicate finder, download stats.
 
 ## Owner context
 

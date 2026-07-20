@@ -73,6 +73,7 @@ class Game(Base):
     screenshots_json = Column(Text, default="[]")
     matched = Column(Boolean, default=False)
     match_failed = Column(Boolean, default=False)
+    download_count = Column(Integer, default=0)
     added_at = Column(DateTime, default=utcnow)
 
     @property

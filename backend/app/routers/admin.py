@@ -184,6 +184,69 @@ def scan_status(_=Depends(require("library.view"))):
     return scanner.status
 
 
+# ---------- manual match fixer ----------
+
+class ApplyMatchBody(BaseModel):
+    igdb_id: int
+
+
+def _igdb_client(db: Session) -> IGDBClient:
+    cid = get_setting(db, "igdb_client_id")
+    secret = get_setting(db, "igdb_client_secret")
+    if not cid or not secret:
+        raise HTTPException(400, "IGDB credentials not set (Settings → IGDB).")
+    return IGDBClient(cid, secret)
+
+
+@router.get("/games/{game_id}/match-candidates")
+def match_candidates(game_id: int, q: str | None = None, db: Session = Depends(get_db),
+                     _=Depends(require("scan.run"))):
+    import datetime
+    from ..services import platforms
+    g = db.get(Game, game_id)
+    if not g:
+        raise HTTPException(404, "Game not found")
+    client = _igdb_client(db)
+    info = platforms.PLATFORMS.get(g.platform)
+    query = (q or g.name).strip()
+    try:
+        results = client.raw_search(query, info["igdb"] if info else None)
+    except Exception as e:
+        raise HTTPException(502, f"IGDB search failed: {e}")
+    candidates = []
+    for r in results:
+        year = None
+        if r.get("first_release_date"):
+            year = datetime.datetime.fromtimestamp(
+                r["first_release_date"], datetime.timezone.utc).year
+        candidates.append({
+            "igdb_id": r.get("id"),
+            "name": r.get("name"),
+            "year": year,
+            "cover": client.cover_url(r),
+            "summary": (r.get("summary") or "")[:200],
+        })
+    return {"query": query, "candidates": candidates}
+
+
+@router.post("/games/{game_id}/apply-match")
+def apply_match(game_id: int, body: ApplyMatchBody, db: Session = Depends(get_db),
+                _=Depends(require("scan.run"))):
+    g = db.get(Game, game_id)
+    if not g:
+        raise HTTPException(404, "Game not found")
+    client = _igdb_client(db)
+    try:
+        result = client.by_id(body.igdb_id)
+    except Exception as e:
+        raise HTTPException(502, f"IGDB lookup failed: {e}")
+    if not result:
+        raise HTTPException(404, "IGDB game not found")
+    scanner.apply_result(client, g, result)
+    db.commit()
+    return {"ok": True}
+
+
 # ---------- settings ----------
 
 class SettingsBody(BaseModel):

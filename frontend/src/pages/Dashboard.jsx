@@ -128,6 +128,10 @@ export default function Dashboard() {
             <div className="stat-value">{stats.matched}</div>
             <div className="stat-label">With artwork</div>
           </div>
+          <div className="stat-card">
+            <div className="stat-value">{stats.downloads ?? 0}</div>
+            <div className="stat-label">Downloads</div>
+          </div>
         </div>
       )}
 

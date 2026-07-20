@@ -95,6 +95,34 @@ class IGDBClient:
                 break  # confident hit, stop early
         return best if best_score >= 0.55 else None
 
+    def raw_search(self, name: str, igdb_platform: int | None, limit: int = 8):
+        """Return candidate results for the manual match fixer (no scoring
+        cutoff). Tries with the platform filter first, then without."""
+        results = self._query(name, igdb_platform) or []
+        if len(results) < 3 and igdb_platform:
+            seen = {g.get("id") for g in results}
+            for g in self._query(name, None) or []:
+                if g.get("id") not in seen:
+                    results.append(g)
+        return results[:limit]
+
+    def by_id(self, igdb_id: int):
+        """Fetch a single game's full metadata by IGDB id."""
+        self._throttle()
+        token = self._get_token()
+        body = (
+            "fields name,summary,first_release_date,total_rating,"
+            "genres.name,cover.image_id,screenshots.image_id; "
+            f"where id = {int(igdb_id)}; limit 1;"
+        )
+        r = httpx.post(API_URL, content=body, headers={
+            "Client-ID": self.client_id,
+            "Authorization": f"Bearer {token}",
+        }, timeout=15)
+        r.raise_for_status()
+        data = r.json()
+        return data[0] if data else None
+
     @staticmethod
     def cover_url(game: dict) -> str | None:
         img = (game.get("cover") or {}).get("image_id")

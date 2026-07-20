@@ -129,30 +129,37 @@ def _match_metadata(db):
         status["done"] += 1
 
 
+def apply_result(client: IGDBClient, g: Game, result: dict):
+    """Populate a Game from a specific IGDB result dict and download its art.
+    Shared by the auto-matcher and the manual match-fixer endpoint."""
+    g.igdb_id = result.get("id")
+    g.name = result.get("name") or g.name
+    g.summary = result.get("summary")
+    if result.get("first_release_date"):
+        import datetime
+        g.release_year = datetime.datetime.fromtimestamp(
+            result["first_release_date"], datetime.timezone.utc
+        ).year
+    g.genres = ", ".join(
+        x["name"] for x in result.get("genres", []) if x.get("name")) or None
+    g.rating = round(result["total_rating"], 1) if result.get("total_rating") else None
+    cover = client.cover_url(result)
+    if cover:
+        fname = f"{g.id}_cover.jpg"
+        if download_image(cover, ART_PATH / fname):
+            g.cover_file = fname
+    g.screenshots_json = json.dumps(client.screenshot_urls(result))
+    g.matched = True
+    g.match_failed = False
+
+
 def _match_one(client: IGDBClient | None, g: Game):
     info = platforms.PLATFORMS.get(g.platform)
     igdb_platform = info["igdb"] if info else None
     query = MULTIDISC_HINT.sub("", g.name).strip()
     result = client.search(query, igdb_platform) if client else None
     if result:
-        g.igdb_id = result.get("id")
-        g.name = result.get("name") or g.name
-        g.summary = result.get("summary")
-        if result.get("first_release_date"):
-            import datetime
-            g.release_year = datetime.datetime.fromtimestamp(
-                result["first_release_date"], datetime.timezone.utc
-            ).year
-        g.genres = ", ".join(
-            x["name"] for x in result.get("genres", []) if x.get("name")) or None
-        g.rating = round(result["total_rating"], 1) if result.get("total_rating") else None
-        cover = client.cover_url(result)
-        if cover:
-            fname = f"{g.id}_cover.jpg"
-            if download_image(cover, ART_PATH / fname):
-                g.cover_file = fname
-        g.screenshots_json = json.dumps(client.screenshot_urls(result))
-        g.matched = True
+        apply_result(client, g, result)
     else:
         g.match_failed = True
     # art fallback: libretro-thumbnails (keyed on No-Intro filenames, no API key)

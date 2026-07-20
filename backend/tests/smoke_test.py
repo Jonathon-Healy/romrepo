@@ -102,4 +102,11 @@ assert c.get("/api/games?favorites=1", headers=H).json()["total"] == 0
 r = c.get("/api/games/random", headers=H)
 assert r.status_code == 200 and "id" in r.json(), r.text
 
+# download stats: the earlier token download incremented the counter
+assert c.get(f"/api/games/{gid}", headers=H).json()["download_count"] >= 1, "download_count"
+
+# duplicates endpoint (fixture has 4 distinct titles -> no groups)
+r = c.get("/api/duplicates", headers=H)
+assert r.status_code == 200 and r.json()["total_groups"] == 0, r.text
+
 print("ALL BACKEND TESTS PASSED")

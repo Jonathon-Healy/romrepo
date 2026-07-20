@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>RomRepo</Name>
+  <Repository>ghcr.io/jonathon-healy/romrepo:latest</Repository>
+  <Registry>https://github.com/jonathon-healy/romrepo/pkgs/container/romrepo</Registry>
+  <Network>bridge</Network>
+  <Shell>sh</Shell>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/jonathon-healy/romrepo/issues</Support>
+  <Project>https://github.com/jonathon-healy/romrepo</Project>
+  <Overview>Self-hosted rom/ISO library manager - like Jellyfin for your emulation collection. Scans a folder-per-platform library, pulls box art and metadata from IGDB, and serves a clean web UI with user accounts, custom roles, and mandatory TOTP MFA. Authenticated downloads work on LAN or over the internet. First visit walks you through creating the admin account; add free IGDB (Twitch dev) credentials in Settings for artwork.</Overview>
+  <Category>MediaServer:Other Tools:</Category>
+  <WebUI>http://[IP]:[PORT:8080]/</WebUI>
+  <TemplateURL>https://raw.githubusercontent.com/jonathon-healy/romrepo/main/templates/romrepo.xml</TemplateURL>
+  <Icon>https://raw.githubusercontent.com/jonathon-healy/romrepo/main/templates/icon.png</Icon>
+  <ExtraParams/>
+  <DateInstalled/>
+  <DonateText/>
+  <DonateLink/>
+  <Config Name="WebUI Port" Target="8080" Default="8080" Mode="tcp" Description="Port for the RomRepo web interface" Type="Port" Display="always" Required="true" Mask="false">8080</Config>
+  <Config Name="ROM Library" Target="/roms" Default="/mnt/user/roms" Mode="ro" Description="Your rom/ISO library root. One subfolder per platform (snes, ps2, gba, ...). Read-only is recommended." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/roms</Config>
+  <Config Name="App Data" Target="/data" Default="/mnt/user/appdata/romrepo" Mode="rw" Description="Database, box art cache, and secret key" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/romrepo</Config>
+  <Config Name="Session Length (hours)" Target="TOKEN_TTL_HOURS" Default="12" Mode="" Description="How long sign-in sessions last before requiring password + TOTP again" Type="Variable" Display="advanced" Required="false" Mask="false">12</Config>
+</Container>

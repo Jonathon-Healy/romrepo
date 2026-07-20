@@ -1,0 +1,14 @@
+services:
+  romrepo:
+    build: .
+    container_name: romrepo
+    ports:
+      - "8080:8080"
+    volumes:
+      - /mnt/user/roms:/roms:ro     # your rom library (read-only)
+      - /mnt/user/appdata/romrepo:/data
+    environment:
+      - ROMS_PATH=/roms
+      - DATA_PATH=/data
+      # - TOKEN_TTL_HOURS=12
+    restart: unless-stopped

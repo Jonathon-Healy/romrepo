@@ -36,7 +36,7 @@ backend/app/
 backend/tests/smoke_test.py  end-to-end API test (see Testing)
 frontend/src/       React SPA: api.js, AuthContext, components/{Layout,GameCard,GameModal}, pages/{AuthPage,Dashboard,Library,UsersPage,RolesPage,SettingsPage,ProfilePage}, styles.css (all theming)
 templates/romrepo.xml   unraid Docker template (+ icon.png)
-.github/workflows/docker.yml  builds ghcr.io/jonathon-healy/romrepo:latest on push to main
+.gitea/workflows/docker.yaml  Gitea Actions: builds www.shit-hub.net/main/romrepo:latest on push to main
 Dockerfile          multi-stage: node:20-alpine builds frontend → python:3.12-slim, dist copied to ./static
 ```
 
@@ -53,8 +53,8 @@ Dockerfile          multi-stage: node:20-alpine builds frontend → python:3.12-
 ## Gotchas / sharp edges
 
 - **`Base.metadata.create_all` does NOT migrate.** Adding columns to existing tables silently no-ops against the owner's live DB in /data. Adding a *new table* is fine (that's how Favorite shipped). There is now a `_migrate()` runner in main.py: a PRAGMA-guarded additive-column list (`ALTER TABLE … ADD COLUMN`) that runs at startup — that's how `download_count` reaches the live DB. **Add future columns to that list**, don't rely on create_all.
-- **GHCR image name must stay lowercase** (`ghcr.io/jonathon-healy/romrepo`) — `github.repository` is `Jonathon-Healy/romrepo` and breaks docker tags; the workflow hardcodes lowercase.
-- **The GHCR package is not public yet.** No Actions build has succeeded (GitHub Actions had an outage during setup — runs showed "Startup failure"). After the first green build: repo → Packages → romrepo → Package settings → Change visibility → Public. Until then `docker pull ghcr.io/...` returns `denied`.
+- **Docker image names must stay lowercase** — the workflow hardcodes `www.shit-hub.net/main/romrepo` rather than interpolating repo variables that may carry capitals.
+- **Gitea CI specifics:** workflow lives in `.gitea/workflows/docker.yaml` (Gitea also reads `.github/workflows/`, which is why the old GitHub one was deleted — it would fail against ghcr). Registry auth uses a repo Actions secret `REGISTRY_TOKEN` (Gitea access token with `read:package` + `write:package`), never the raw token in yaml. buildx `cache-from/to type=gha` was dropped — act_runner's cache server doesn't reliably support it.
 - `/api/games/random` must stay declared **before** `/api/games/{game_id}` in games.py.
 - Frontend build artifacts are served by FastAPI from `backend/static` (Docker copies `frontend/dist` there); a catch-all route serves index.html for SPA paths. `/api/art` is a StaticFiles mount of DATA_PATH/art (unauthenticated by design — image tags need it).
 - IGDB creds live in the settings table (client id + secret from a free Twitch dev app), not env vars. `igdb_secret_set` is returned instead of the secret.
@@ -62,9 +62,9 @@ Dockerfile          multi-stage: node:20-alpine builds frontend → python:3.12-
 ## Deployment reality (owner's setup)
 
 - unraid server "Tower". Roms at `/mnt/user/Main/Emulation/ROMs` (**nested vendor folders**, e.g. `Sony/...`), mounted read-only at `/roms`. Appdata at `/mnt/user/appdata/romrepo` → `/data`. Host port **8989 was taken (Sonarr)** — owner uses a different host port; container listens on 8080.
-- Actions/GHCR wasn't working at handoff, so the owner **builds locally**: source cloned at `/mnt/user/appdata/romrepo-src`, `git pull && docker build -t romrepo:latest .`, container Repository field = `romrepo:latest`. Once GHCR works and the package is public, switch the Repository back to `ghcr.io/jonathon-healy/romrepo:latest` for auto-updates.
-- unraid template lives in `templates/romrepo.xml`; owner installed it by wget-ing the raw file into `/boot/config/plugins/dockerMan/templates-user/`. If you change the XML, tell them to re-wget.
-- GitHub: https://github.com/Jonathon-Healy/romrepo (public). Pushes were made with a fine-grained PAT that needed **Repository permissions → Workflows: Read and write** (plain contents:write gets rejected for workflow files). Owner's account has email privacy on — commit with `jonathon-healy@users.noreply.github.com`.
+- **Code hosting: owner's self-hosted Gitea** at `https://www.shit-hub.net` (user `main`, repo `romrepo`; also on LAN at `192.168.1.69:3000`), migrated from GitHub (github.com/Jonathon-Healy/romrepo is the frozen old home). Gitea Actions is enabled with a registered runner (label `ubuntu-latest`); images publish to Gitea's container registry `www.shit-hub.net/main/romrepo:latest`; container Repository field points there (unraid host is docker-logged-in to that registry). Local-build fallback if CI is down: clone at `/mnt/user/appdata/romrepo-src`, `git pull && docker build -t romrepo:latest .`, set Repository = `romrepo:latest`.
+- **Agent sandboxes can NOT reach the Gitea host** (proxy 403; only github.com is allowlisted for git). Don't try to push — hand the owner exact web-UI or terminal steps instead.
+- unraid template lives in `templates/romrepo.xml`; owner installs it by wget-ing the raw file into `/boot/config/plugins/dockerMan/templates-user/`. If you change the XML, tell them to re-wget (raw URL format: `https://www.shit-hub.net/main/romrepo/raw/branch/main/<path>`).
 
 ## Testing
 

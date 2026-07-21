@@ -8,17 +8,17 @@ Library scanning with per-platform subfolders (snes, ps2, gba, …, 35+ platform
 
 ## Quick start (unraid)
 
-The image is auto-built by GitHub Actions and published to `ghcr.io/jonathon-healy/romrepo:latest` on every push to `main`.
+The image is auto-built by Gitea Actions and published to `www.shit-hub.net/main/romrepo:latest` on every push to `main`.
 
-1. In unraid, go to **Docker → Template Repositories** (bottom of the Docker tab) and add:
+1. Install the unraid template (unraid terminal):
 
    ```
-   https://github.com/jonathon-healy/romrepo
+   wget -O /boot/config/plugins/dockerMan/templates-user/my-RomRepo.xml https://www.shit-hub.net/main/romrepo/raw/branch/main/templates/romrepo.xml
    ```
 
-2. Click **Add Container** and pick **RomRepo** from the template dropdown. The template pre-fills the image, port 8080, `/roms` (your library, read-only) and `/data` (appdata) mappings — adjust paths and apply.
+2. Click **Add Container** and pick **RomRepo** from the template dropdown (under User templates). The template pre-fills the image, port 8080, `/roms` (your library, read-only) and `/data` (appdata) mappings — adjust paths and apply. The unraid host must be `docker login`'d to `www.shit-hub.net` to pull.
 
-   Manual alternative: add a container with repository `ghcr.io/jonathon-healy/romrepo:latest`, port `8080`, `/roms` → your rom share, `/data` → `/mnt/user/appdata/romrepo`. Or use the included `docker-compose.yml`.
+   Manual alternative: add a container with repository `www.shit-hub.net/main/romrepo:latest`, port `8080`, `/roms` → your rom share, `/data` → `/mnt/user/appdata/romrepo`. Or use the included `docker-compose.yml`.
 
 3. Open `http://SERVER-IP:8080`. The first visit walks you through creating the admin account and enrolling TOTP (scan the QR with any authenticator app).
 
